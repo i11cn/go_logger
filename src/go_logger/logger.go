@@ -3,34 +3,203 @@ package go_logger
 import (
     "fmt"
     "os"
+    "path/filepath"
     "runtime"
+    "strconv"
+    "strings"
     "sync"
+    "syscall"
     "time"
 )
 
 type Appender interface {
-    SetLayout(layout string)
     GetLayout() string
     Write(msg string)
 }
 
 type ConsoleAppender struct {
     layout string
-    mutex sync.Mutex
 }
 
-func (ca *ConsoleAppender) SetLayout(layout string) {
-    ca.layout = layout
+func NewConsoleAppender(layout string) *ConsoleAppender {
+    return &ConsoleAppender{layout}
 }
+
+var console_appender_mutex sync.Mutex
 
 func (ca *ConsoleAppender) GetLayout() string {
     return ca.layout
 }
 
-func (ca *ConsoleAppender) Write(msg string) {
-    ca.mutex.Lock()
-    defer ca.mutex.Unlock()
+func (*ConsoleAppender) Write(msg string) {
+    console_appender_mutex.Lock()
+    defer console_appender_mutex.Unlock()
     fmt.Print(msg)
+}
+
+type StderrAppender struct {
+    layout string
+}
+
+var stderr_appender_mutex sync.Mutex
+
+func (ea *StderrAppender) SetLayout(layout string) {
+    ea.layout = layout
+}
+
+func (ea *StderrAppender) GetLayout() string {
+    return ea.layout
+}
+
+func (*StderrAppender) Write(msg string) {
+    stderr_appender_mutex.Lock()
+    defer stderr_appender_mutex.Unlock()
+    os.Stderr.WriteString(msg)
+}
+
+type FileAppender struct {
+    Layout string
+    FileName string
+    MaxSize int64
+    file *os.File
+    current_size int64
+}
+
+func NewFileAppender(layout, file_name string, max_size int64) *FileAppender {
+    return &FileAppender{Layout: layout, FileName: file_name, MaxSize: max_size}
+}
+
+func (l *FileAppender) CloseFile() {
+    if l.file != nil {
+        l.file.Close()
+        l.file = nil
+    }
+    l.current_size = 0
+}
+
+func (l *FileAppender) GetLayout() string {
+    return l.Layout
+}
+
+func (f *FileAppender) get_current_size(file_name string) int64 {
+    if f.current_size > 0 {
+        return f.current_size
+    } else if f.file != nil {
+        if fi, err := f.file.Stat(); err == nil {
+            f.current_size = fi.Size()
+        }
+        return f.current_size
+    } else {
+        if fi, err := os.Lstat(file_name); err == nil {
+            f.current_size = fi.Size()
+        }
+        return f.current_size
+    }
+}
+
+func (f *FileAppender) open_and_write(file_name, msg string) {
+    var err error
+    if f.file == nil {
+        var path string
+        clean := filepath.Clean(file_name)
+        if path, err = filepath.Abs(clean); err != nil {
+            path = clean
+        }
+        f.file, err = os.OpenFile(path, syscall.O_WRONLY | syscall.O_CREAT | syscall.O_APPEND, 0644)
+    }
+    if err != nil {
+        f.file = nil
+        l := get_private_logger()
+        l.Error("打开日志文件", f.FileName, "失败: ", err.Error())
+        return
+    } else {
+        if fi, err := f.file.Stat(); err == nil {
+            f.current_size = fi.Size()
+        }
+    }
+    if b, e := f.file.Write([]byte(msg)); e == nil {
+        f.current_size += int64(b)
+    }
+}
+
+func (f *FileAppender) Write(msg string) {
+    f.open_and_write(f.FileName, msg)
+}
+
+type TruncatedFileAppender struct {
+    FileAppender
+}
+
+func NewTruncatedFileAppender(layout, file_name string, max_size int64) *TruncatedFileAppender {
+    return &TruncatedFileAppender{FileAppender{Layout: layout, FileName: file_name, MaxSize: max_size}}
+}
+
+func (f *TruncatedFileAppender) Write(msg string) {
+    // 检查是否需要关闭文件
+    if int64(len(msg)) + f.get_current_size(f.FileName) > f.MaxSize {
+        if f.file != nil {
+            f.file.Truncate(0)
+        } else {
+            os.Remove(f.FileName)
+        }
+    }
+    f.open_and_write(f.FileName, msg)
+}
+
+type FixSizeFileAppender struct {
+    FileAppender
+    current_file_name string
+    count int
+}
+
+func NewFixSizeFileAppender(layout, file_name string, max_size int64) *FixSizeFileAppender {
+    return &FixSizeFileAppender{FileAppender{Layout: layout, FileName: file_name, MaxSize: max_size}, file_name, 0}
+}
+
+func (f *FixSizeFileAppender) get_current_size(file_name string) int64 {
+    if f.current_size > 0 {
+        return f.current_size
+    } else if f.file != nil {
+        if fi, err := f.file.Stat(); err == nil {
+            f.current_size = fi.Size()
+        }
+        return f.current_size
+    } else {
+        path, name := filepath.Split(f.FileName)
+        if path == "" {
+            path = filepath.Dir(f.FileName)
+        }
+        name_dot := name + "."
+        filepath.Walk(path, func(fn string, info os.FileInfo, err error) error {
+            if strings.HasPrefix(fn, name) {
+                if fn == name {
+                    f.current_size = info.Size()
+                } else {
+                    number := strings.TrimPrefix(fn, name_dot)
+                    if count, e := strconv.Atoi(number); e == nil && count > f.count {
+                        f.count = count
+                        f.current_size = info.Size()
+                        f.current_file_name = filepath.Join(path, fn)
+                    }
+                }
+            }
+            return nil
+        })
+        return f.current_size
+    }
+}
+
+func (f *FixSizeFileAppender) Write(msg string) {
+    // 检查是否需要关闭文件
+    if int64(len(msg)) + f.get_current_size(f.FileName) > f.MaxSize {
+        if f.file != nil {
+            f.CloseFile()
+        }
+        f.count++
+        f.current_file_name = fmt.Sprintf("%s.%d", f.FileName, f.count)
+        f.current_size = 0
+    }
+    f.open_and_write(f.current_file_name, msg)
 }
 
 type Logger struct {
@@ -70,6 +239,16 @@ func (l *Logger) AddAppender(apd Appender) {
     l.appender_mutex.Lock()
     defer l.appender_mutex.Unlock()
     l.appenders = append(l.appenders, apd);
+}
+
+func (l *Logger) ClearAppender() {
+    l.appender_mutex.Lock()
+    defer l.appender_mutex.Unlock()
+    l.appenders = make([]Appender, 0, 10)
+}
+
+func (l *Logger) AppenderCount() int {
+    return len(l.appenders)
 }
 
 func (l *Logger) Trace(args... interface{}) {
@@ -177,7 +356,7 @@ func create_logger(name string) *Logger {
     defer global_map_mutex.Unlock()
     ret := global_logger_map[name]
     if ret == nil {
-        ret = &Logger{name: name, time_layout : "2006-01-02 15:04:05.999999", appenders : make([]Appender, 0, 10)}
+        ret = &Logger{name: name, time_layout : "2006-01-02 15:04:05.999999", appenders : make([]Appender, 0, 10), level: ALL, enabled: true}
         global_logger_map[name] = ret
     }
     return ret
@@ -188,11 +367,19 @@ func get_time_string(layout string) string {
     return t.Format(layout)
 }
 
+func get_private_logger () (l *Logger) {
+    l = GetLogger("go_logger")
+    if len(l.appenders) == 0 {
+        l.AddAppender(&StderrAppender{"[%T] %N-%L: %M"})
+    }
+    return
+}
+
 func parse_log_layout(int_args [2]int, str_args [5]string, layout string, args... interface{}) string {
     tag := false
     total := len(args)
     current := 0
-    msg := make([]rune, 4096)
+    msg := make([]rune, 0, 4096)
     for _, c := range layout {
         if tag {
             // 处理%*中的那个*
