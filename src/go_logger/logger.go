@@ -136,7 +136,7 @@ func NewTruncatedFileAppender(layout, file_name string, max_size int64) *Truncat
 
 func (f *TruncatedFileAppender) Write(msg string) {
     // 检查是否需要关闭文件
-    if int64(len(msg)) + f.get_current_size(f.FileName) > f.MaxSize {
+    if f.MaxSize > 0  && (int64(len(msg)) + f.get_current_size(f.FileName) > f.MaxSize) {
         if f.file != nil {
             f.file.Truncate(0)
         } else {
@@ -150,10 +150,14 @@ type FixSizeFileAppender struct {
     FileAppender
     current_file_name string
     count int
+    MaxCount int
 }
 
 func NewFixSizeFileAppender(layout, file_name string, max_size int64) *FixSizeFileAppender {
-    return &FixSizeFileAppender{FileAppender{Layout: layout, FileName: file_name, MaxSize: max_size}, file_name, 0}
+    ret := new(FixSizeFileAppender)
+    ret.FileAppender = FileAppender{Layout: layout, FileName: file_name, MaxSize: max_size}
+    ret.current_file_name = file_name
+    return ret
 }
 
 func (f *FixSizeFileAppender) get_current_size(file_name string) int64 {
@@ -185,21 +189,60 @@ func (f *FixSizeFileAppender) get_current_size(file_name string) int64 {
             }
             return nil
         })
+        if f.MaxCount > 0 && f.count > f.MaxCount {
+            f.current_file_name = f.FileName
+            f.current_size = 0
+            f.count = 0
+        }
         return f.current_size
     }
 }
 
 func (f *FixSizeFileAppender) Write(msg string) {
     // 检查是否需要关闭文件
-    if int64(len(msg)) + f.get_current_size(f.FileName) > f.MaxSize {
+    if f.MaxSize > 0 && (int64(len(msg)) + f.get_current_size(f.FileName) > f.MaxSize) {
         if f.file != nil {
             f.CloseFile()
         }
         f.count++
         f.current_file_name = fmt.Sprintf("%s.%d", f.FileName, f.count)
+        os.Truncate(f.current_file_name, 0)
         f.current_size = 0
     }
     f.open_and_write(f.current_file_name, msg)
+}
+
+type SplittedFileAppender struct {
+    FileAppender
+    duration time.Duration
+    current_file_name string
+    next_split_time time.Time
+}
+
+func NewSplittedFileAppender(layout, file_name string, duration time.Duration) *SplittedFileAppender {
+    return &SplittedFileAppender{FileAppender: FileAppender{Layout: layout, FileName: file_name}, duration: duration, current_file_name: file_name}
+}
+
+func (s *SplittedFileAppender) Write(msg string) {
+    if new_name, check_time, split := s.should_split(); split {
+        s.CloseFile()
+        s.current_file_name = new_name
+        s.next_split_time = check_time
+    }
+    s.open_and_write(s.current_file_name, msg)
+}
+
+func (s *SplittedFileAppender) should_split() (new_name string, check_time time.Time, split bool) {
+    now := time.Now()
+    if now.Before(s.next_split_time) {
+        split = false
+        return
+    }
+    split = true
+    t := now.Truncate(s.duration)
+    new_name = fmt.Sprintf("%s.%s", s.FileName, t.Format("20060102.150405"))
+    check_time = t.Add(s.duration)
+    return
 }
 
 type Logger struct {
