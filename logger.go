@@ -369,6 +369,16 @@ func (l *Logger) Fatalf(layout string, args... interface{}) *Logger {
     return l
 }
 
+func (l *Logger) Todo(args... interface{}) *Logger {
+    if l.enabled { l.write("TODO", args...) }
+    return l
+}
+
+func (l *Logger) Todof(layout string, args... interface{}) *Logger {
+    if  l.enabled { l.writef("TODO", layout, args...) }
+    return l
+}
+
 func GetLogger(name string) *Logger {
     ret := global_logger_map[name]
     if ret != nil {
