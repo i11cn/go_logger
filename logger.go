@@ -1,4 +1,4 @@
-package go_logger
+package logger
 
 import (
 	"fmt"
@@ -405,6 +405,16 @@ func (l *Logger) Fatalf(layout string, args ...interface{}) *Logger {
 		l.writef("FATAL", layout, args...)
 	}
 	return l
+}
+
+func (l *Logger) Todo(args... interface{}) *Logger {
+    if l.enabled { l.write("TODO", args...) }
+    return l
+}
+
+func (l *Logger) Todof(layout string, args... interface{}) *Logger {
+    if  l.enabled { l.writef("TODO", layout, args...) }
+    return l
 }
 
 func GetLogger(name string) *Logger {
