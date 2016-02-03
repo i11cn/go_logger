@@ -246,8 +246,24 @@ func (s *SplittedFileAppender) Write(msg string) {
 	s.open_and_write(s.current_file_name, msg)
 }
 
+func (s *SplittedFileAppender) should_split_per_day() (new_name string, check_time time.Time, split bool) {
+	now := time.Now()
+	if now.Before(s.next_split_time) {
+		split = false
+		return
+	}
+	split = true
+	t, _ := time.Parse("20060102", now.Format("20060102"))
+	new_name = fmt.Sprintf("%s.%s.%s", s.FileName, t.Format("20060102.150405"), s.FileExt)
+	check_time = t.Add(s.duration)
+	return
+}
+
 func (s *SplittedFileAppender) should_split() (new_name string, check_time time.Time, split bool) {
-	now := time.Now().Local()
+	if s.duration == 24*time.Hour {
+		return s.should_split_per_day()
+	}
+	now := time.Now()
 	if now.Before(s.next_split_time) {
 		split = false
 		return
