@@ -1,11 +1,7 @@
 package logger
 
 import (
-	"fmt"
-	"os"
-	"runtime"
 	"sync"
-	"time"
 )
 
 type Logger struct {
@@ -185,128 +181,9 @@ func (l *Logger) Todof(layout string, args ...interface{}) *Logger {
 }
 
 func GetLogger(name string) *Logger {
-	ret := global_logger_map[name]
-	if ret != nil {
+	if ret, exist := get_logger(name); exist {
 		return ret
-	}
-	return create_logger(name)
-}
-
-func (l *Logger) get_src_info(level string) (int_args [2]int, str_args [5]string) {
-	if pc, _, _, ok := runtime.Caller(3); ok {
-		f := runtime.FuncForPC(pc)
-		file, line := f.FileLine(pc)
-		int_args = [2]int{line, os.Getpid()}
-		str_args = [5]string{file, f.Name(), l.name, level, get_time_string(l.time_layout)}
 	} else {
-		int_args = [2]int{0, os.Getpid()}
-		str_args = [5]string{"", "", l.name, level, get_time_string(l.time_layout)}
+		return create_logger(name)
 	}
-	return
-}
-
-func (l *Logger) write(level string, args ...interface{}) {
-	int_args, str_args := l.get_src_info(level)
-	l.appender_mutex.RLock()
-	defer l.appender_mutex.RUnlock()
-	for _, a := range l.appenders {
-		msg := parse_log_layout(int_args, str_args, a.GetLayout(), args...)
-		a.Write(msg)
-	}
-}
-
-func (l *Logger) writef(level string, layout string, args ...interface{}) {
-	int_args, str_args := l.get_src_info(level)
-	l.appender_mutex.RLock()
-	defer l.appender_mutex.RUnlock()
-	for _, a := range l.appenders {
-		msg := parse_log_layout(int_args, str_args, layout, args...)
-		a.Write(msg)
-	}
-}
-
-var global_logger_map map[string]*Logger = make(map[string]*Logger)
-var global_map_mutex sync.Mutex
-
-func create_logger(name string) *Logger {
-	global_map_mutex.Lock()
-	defer global_map_mutex.Unlock()
-	ret := global_logger_map[name]
-	if ret == nil {
-		ret = &Logger{name: name, time_layout: "2006-01-02 15:04:05.999999", appenders: make([]Appender, 0, 10), level: ALL, enabled: true}
-		global_logger_map[name] = ret
-	}
-	return ret
-}
-
-func get_time_string(layout string) string {
-	t := time.Now()
-	return t.Format(layout)
-}
-
-func get_private_logger() (l *Logger) {
-	l = GetLogger("go_logger")
-	if len(l.appenders) == 0 {
-		l.AddAppender(&StderrAppender{"[%T] %N-%L: %M"})
-	}
-	return
-}
-
-func parse_log_layout(int_args [2]int, str_args [5]string, layout string, args ...interface{}) string {
-	tag := false
-	total := len(args)
-	current := 0
-	msg := make([]rune, 0, 4096)
-	for _, c := range layout {
-		if tag {
-			// 处理%*中的那个*
-			switch c {
-			case 'F':
-				msg = append(msg, []rune(str_args[0])...)
-
-			case 'f':
-				msg = append(msg, []rune(str_args[1])...)
-
-			case 'l':
-				msg = append(msg, []rune(fmt.Sprint(int_args[0]))...)
-
-			case 'N':
-				msg = append(msg, []rune(str_args[2])...)
-
-			case 'L':
-				msg = append(msg, []rune(str_args[3])...)
-
-			case 'p':
-				msg = append(msg, []rune(fmt.Sprint(int_args[1]))...)
-
-			case 'T':
-				msg = append(msg, []rune(str_args[4])...)
-
-			case '%':
-				msg = append(msg, '%')
-
-			case 'm':
-				if current < total {
-					msg = append(msg, []rune(fmt.Sprint(args[current]))...)
-					current++
-				} else {
-					msg = append(msg, '%', 'm')
-				}
-
-			case 'M':
-				for ; current < total; current++ {
-					msg = append(msg, []rune(fmt.Sprint(args[current]))...)
-				}
-			}
-			tag = false
-		} else if c == '%' {
-			// 遇到了%*中的那个%
-			tag = true
-		} else {
-			// 啥都没有，正常的一个字符，照原样输出
-			msg = append(msg, c)
-		}
-	}
-	msg = append(msg, []rune(fmt.Sprintln())...)
-	return string(msg)
 }
