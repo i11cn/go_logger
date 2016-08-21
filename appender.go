@@ -4,13 +4,20 @@ import (
 	"time"
 )
 
-type Appender interface {
-	GetLayout() string
-	Write(msg string)
-}
+type (
+	Layout struct {
+		Parts []func(int_args [2]int, str_args [5]string, args ...interface{}) []byte
+	}
+
+	Appender interface {
+		GetLayout2() string
+		GetLayout() Layout
+		Write(msg string)
+	}
+)
 
 func NewConsoleAppender(layout string) *ConsoleAppender {
-	return &ConsoleAppender{layout}
+	return &ConsoleAppender{Layout{ParseLayout(layout, true)}, layout}
 }
 
 func NewFileAppender(layout, file_name string, max_size int64) *FileAppender {

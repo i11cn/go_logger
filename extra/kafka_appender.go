@@ -3,19 +3,25 @@ package extra
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
+	"go_logger"
 )
 
 type (
 	KafkaAppender struct {
-		layout   string
+		layout   logger.Layout
+		layout2  string
 		producer sarama.AsyncProducer
 		topic    string
 		buf      chan *sarama.ProducerMessage
 	}
 )
 
-func (k *KafkaAppender) GetLayout() string {
+func (k *KafkaAppender) GetLayout() logger.Layout {
 	return k.layout
+}
+
+func (k *KafkaAppender) GetLayout2() string {
+	return k.layout2
 }
 
 func (k *KafkaAppender) Write(msg string) {
@@ -28,7 +34,8 @@ func (k *KafkaAppender) Write(msg string) {
 }
 
 func NewKafkaAppender(prod sarama.AsyncProducer, topic, layout string) *KafkaAppender {
-	ret := &KafkaAppender{layout, prod, topic, make(chan *sarama.ProducerMessage, 100)}
+	lo := logger.Layout{logger.ParseLayout(layout, false)}
+	ret := &KafkaAppender{lo, layout, prod, topic, make(chan *sarama.ProducerMessage, 100)}
 	go func() {
 		select {
 		case msg := <-ret.buf:

@@ -4,15 +4,6 @@ import (
 	"sync"
 )
 
-type Logger struct {
-	name           string
-	level          int
-	enabled        bool
-	time_layout    string
-	appenders      []Appender
-	appender_mutex sync.RWMutex
-}
-
 const (
 	ALL   = 0
 	TRACE = 10
@@ -23,6 +14,17 @@ const (
 	ERROR = 60
 	FATAL = 70
 	NONE  = 100
+)
+
+type (
+	Logger struct {
+		name           string
+		level          int
+		enabled        bool
+		time_layout    string
+		appenders      []Appender
+		appender_mutex sync.RWMutex
+	}
 )
 
 func (l *Logger) SetLevel(level int) *Logger {
