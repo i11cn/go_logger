@@ -40,7 +40,7 @@ func (l *Logger) writef(level string, layout string, args ...interface{}) {
 	int_args, str_args := l.get_src_info(level)
 	l.appender_mutex.RLock()
 	defer l.appender_mutex.RUnlock()
-	lo := Layout{ParseLayout(layout, true)}
+	lo := Layout{ParseLayout(layout)}
 	for _, a := range l.appenders {
 		msg := parse_log_layout(lo, int_args, str_args, args...)
 		a.Write(msg)
@@ -73,7 +73,7 @@ func get_time_string(layout string) string {
 func get_private_logger() (l *Logger) {
 	l = GetLogger("go_logger")
 	if len(l.appenders) == 0 {
-		l.AddAppender(&StderrAppender{Layout{ParseLayout("[%T] %N-%L: %M", true)}})
+		l.AddAppender(&StderrAppender{Layout{ParseLayout("[%T] %N-%L: %M")}})
 	}
 	return
 }
