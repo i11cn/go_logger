@@ -41,7 +41,6 @@ func (*StderrAppender) Write(msg string) {
 	stderr_appender_mutex.Lock()
 	defer stderr_appender_mutex.Unlock()
 	fmt.Fprintln(os.Stderr, msg)
-	//os.Stderr.WriteString(msg)
 }
 
 type FileAppender struct {
@@ -114,9 +113,6 @@ func (f *FileAppender) open_and_write(file_name, msg string) {
 	if b, e := fmt.Fprintln(f.file, msg); e == nil {
 		f.current_size += int64(b)
 	}
-	//if b, e := f.file.Write([]byte(msg)); e == nil {
-	//	f.current_size += int64(b)
-	//}
 }
 
 func (f *FileAppender) Write(msg string) {
