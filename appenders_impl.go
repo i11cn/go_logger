@@ -24,7 +24,7 @@ func (ca *ConsoleAppender) GetLayout() Layout {
 func (*ConsoleAppender) Write(msg string) {
 	console_appender_mutex.Lock()
 	defer console_appender_mutex.Unlock()
-	fmt.Print(msg)
+	fmt.Println(msg)
 }
 
 type StderrAppender struct {
@@ -33,11 +33,6 @@ type StderrAppender struct {
 
 var stderr_appender_mutex sync.Mutex
 
-/*
-func (ea *StderrAppender) SetLayout(layout string) {
-	ea.layout = layout
-}
-*/
 func (ea *StderrAppender) GetLayout() Layout {
 	return ea.layout
 }
@@ -45,11 +40,12 @@ func (ea *StderrAppender) GetLayout() Layout {
 func (*StderrAppender) Write(msg string) {
 	stderr_appender_mutex.Lock()
 	defer stderr_appender_mutex.Unlock()
-	os.Stderr.WriteString(msg)
+	fmt.Fprintln(os.Stderr, msg)
+	//os.Stderr.WriteString(msg)
 }
 
 type FileAppender struct {
-	Layout       string
+	layout       Layout
 	FullName     string
 	FileName     string
 	FileExt      string
@@ -75,8 +71,8 @@ func (l *FileAppender) CloseFile() {
 	l.current_size = 0
 }
 
-func (l *FileAppender) GetLayout() string {
-	return l.Layout
+func (l *FileAppender) GetLayout() Layout {
+	return l.layout
 }
 
 func (f *FileAppender) get_current_size(file_name string) int64 {
@@ -115,9 +111,12 @@ func (f *FileAppender) open_and_write(file_name, msg string) {
 			f.current_size = fi.Size()
 		}
 	}
-	if b, e := f.file.Write([]byte(msg)); e == nil {
+	if b, e := fmt.Fprintln(f.file, msg); e == nil {
 		f.current_size += int64(b)
 	}
+	//if b, e := f.file.Write([]byte(msg)); e == nil {
+	//	f.current_size += int64(b)
+	//}
 }
 
 func (f *FileAppender) Write(msg string) {
