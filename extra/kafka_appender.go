@@ -9,7 +9,6 @@ import (
 type (
 	KafkaAppender struct {
 		layout   logger.Layout
-		layout2  string
 		producer sarama.AsyncProducer
 		topic    string
 		buf      chan *sarama.ProducerMessage
@@ -18,10 +17,6 @@ type (
 
 func (k *KafkaAppender) GetLayout() logger.Layout {
 	return k.layout
-}
-
-func (k *KafkaAppender) GetLayout2() string {
-	return k.layout2
 }
 
 func (k *KafkaAppender) Write(msg string) {

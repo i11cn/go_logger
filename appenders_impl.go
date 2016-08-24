@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,128 +11,14 @@ import (
 	"time"
 )
 
-func ParseLayout(l string, endl bool) []func([2]int, [5]string, ...interface{}) []byte {
-	ret := make([]func([2]int, [5]string, ...interface{}) []byte, 0, 10)
-	tag := false
-	buf := new(bytes.Buffer)
-	current := 0
-	add := func(fn func([2]int, [5]string, ...interface{}) []byte) {
-		if buf.Len() > 0 {
-			msg := buf.Bytes()
-			ret = append(ret, func([2]int, [5]string, ...interface{}) []byte {
-				return msg
-			})
-			buf = new(bytes.Buffer)
-		}
-		ret = append(ret, fn)
-
-	}
-	for _, c := range l {
-		if tag {
-			// 处理%*中的那个*
-			switch c {
-			case 'F':
-				add(func(a1 [2]int, str_args [5]string, a3 ...interface{}) []byte {
-					return []byte(str_args[0])
-				})
-
-			case 'f':
-				add(func(a1 [2]int, str_args [5]string, a3 ...interface{}) []byte {
-					return []byte(str_args[1])
-				})
-
-			case 'l':
-				add(func(int_args [2]int, a2 [5]string, a3 ...interface{}) []byte {
-					return []byte(fmt.Sprint(int_args[0]))
-				})
-
-			case 'N':
-				add(func(a1 [2]int, str_args [5]string, a3 ...interface{}) []byte {
-					return []byte(str_args[2])
-				})
-
-			case 'L':
-				add(func(a1 [2]int, str_args [5]string, a3 ...interface{}) []byte {
-					return []byte(str_args[3])
-				})
-
-			case 'p':
-				add(func(int_args [2]int, a2 [5]string, a3 ...interface{}) []byte {
-					return []byte(fmt.Sprint(int_args[1]))
-				})
-
-			case 'T':
-				add(func(a1 [2]int, str_args [5]string, a3 ...interface{}) []byte {
-					return []byte(str_args[4])
-				})
-
-			case '%':
-				add(func(a1 [2]int, str_args [5]string, a3 ...interface{}) []byte {
-					return []byte("%")
-				})
-
-			case 'm':
-				add(func(pos int) func([2]int, [5]string, ...interface{}) []byte {
-					return func(a1 [2]int, a2 [5]string, args ...interface{}) []byte {
-						if pos < len(args) {
-							return []byte(fmt.Sprint(args[pos]))
-						} else {
-							return []byte("%m")
-						}
-					}
-				}(current))
-				current++
-
-			case 'M':
-				add(func(pos int) func([2]int, [5]string, ...interface{}) []byte {
-					return func(a1 [2]int, a2 [5]string, args ...interface{}) []byte {
-						if pos < len(args) {
-							return []byte(fmt.Sprint(args[pos:]...))
-						} else {
-							return []byte("%M")
-						}
-					}
-				}(current))
-				current = 0x7FFF
-
-			default:
-				buf.WriteRune(c)
-			}
-			tag = false
-		} else if c == '%' {
-			// 遇到了%*中的那个%
-			tag = true
-		} else {
-			// 啥都没有，正常的一个字符，照原样输出
-			buf.WriteRune(c)
-		}
-	}
-	if endl {
-		buf.WriteByte('\n')
-	}
-	if buf.Len() > 0 {
-		msg := buf.Bytes()
-		ret = append(ret, func([2]int, [5]string, ...interface{}) []byte {
-			return msg
-		})
-	}
-
-	return ret
-}
-
 type ConsoleAppender struct {
-	layout  Layout
-	layout2 string
+	layout Layout
 }
 
 var console_appender_mutex sync.Mutex
 
 func (ca *ConsoleAppender) GetLayout() Layout {
 	return ca.layout
-}
-
-func (ca *ConsoleAppender) GetLayout2() string {
-	return ca.layout2
 }
 
 func (*ConsoleAppender) Write(msg string) {
@@ -143,8 +28,7 @@ func (*ConsoleAppender) Write(msg string) {
 }
 
 type StderrAppender struct {
-	layout  Layout
-	layout2 string
+	layout Layout
 }
 
 var stderr_appender_mutex sync.Mutex
@@ -156,10 +40,6 @@ func (ea *StderrAppender) SetLayout(layout string) {
 */
 func (ea *StderrAppender) GetLayout() Layout {
 	return ea.layout
-}
-
-func (ea *StderrAppender) GetLayout2() string {
-	return ea.layout2
 }
 
 func (*StderrAppender) Write(msg string) {
