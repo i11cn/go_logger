@@ -12,10 +12,33 @@ type (
 	}
 
 	Appender interface {
-		GetLayout() Layout
-		Write(msg string)
+		Write(msg []byte)
+		Format([2]int, [5]string, ...interface{}) []byte
+		FormatBy(Layout, [2]int, [5]string, ...interface{}) []byte
+		SetFormatter(Formatter)
+	}
+
+	BaseAppender struct {
+		layout Layout
+		format Formatter
 	}
 )
+
+func NewBaseAppender(layout string) BaseAppender {
+	return BaseAppender{Layout{ParseLayout(layout)}, NewStringFormatter()}
+}
+
+func (ba *BaseAppender) Format(int_args [2]int, str_args [5]string, args ...interface{}) []byte {
+	return ba.format.Format(ba.layout, int_args, str_args, args...)
+}
+
+func (ba *BaseAppender) FormatBy(layout Layout, int_args [2]int, str_args [5]string, args ...interface{}) []byte {
+	return ba.format.Format(layout, int_args, str_args, args...)
+}
+
+func (ba *BaseAppender) SetFormatter(format Formatter) {
+	ba.format = format
+}
 
 func ParseLayout(l string) []func([2]int, [5]string, ...interface{}) []byte {
 	ret := make([]func([2]int, [5]string, ...interface{}) []byte, 0, 10)
@@ -123,28 +146,24 @@ func ParseLayout(l string) []func([2]int, [5]string, ...interface{}) []byte {
 }
 
 func NewConsoleAppender(layout string) *ConsoleAppender {
-	return &ConsoleAppender{Layout{ParseLayout(layout)}}
+	return &ConsoleAppender{NewBaseAppender(layout)}
 }
 
 func NewFileAppender(layout, file_name string, max_size int64) *FileAppender {
 	name, ext := split_file_name(file_name)
-	return &FileAppender{layout: Layout{ParseLayout(layout)}, FullName: file_name, FileName: name, FileExt: ext, MaxSize: max_size}
+	return &FileAppender{BaseAppender: NewBaseAppender(layout), FullName: file_name, FileName: name, FileExt: ext, MaxSize: max_size}
 }
 
 func NewTruncatedFileAppender(layout, file_name string, max_size int64) *TruncatedFileAppender {
-	name, ext := split_file_name(file_name)
-	return &TruncatedFileAppender{FileAppender{layout: Layout{ParseLayout(layout)}, FullName: file_name, FileName: name, FileExt: ext, MaxSize: max_size}}
+	return &TruncatedFileAppender{*(NewFileAppender(layout, file_name, max_size))}
 }
 
 func NewFixSizeFileAppender(layout, file_name string, max_size int64) *FixSizeFileAppender {
-	ret := new(FixSizeFileAppender)
-	name, ext := split_file_name(file_name)
-	ret.FileAppender = FileAppender{layout: Layout{ParseLayout(layout)}, FullName: file_name, FileName: name, FileExt: ext, MaxSize: max_size}
+	ret := &FixSizeFileAppender{FileAppender: *(NewFileAppender(layout, file_name, max_size))}
 	ret.current_file_name = file_name
 	return ret
 }
 
 func NewSplittedFileAppender(layout, file_name string, duration time.Duration) *SplittedFileAppender {
-	name, ext := split_file_name(file_name)
-	return &SplittedFileAppender{FileAppender: FileAppender{layout: Layout{ParseLayout(layout)}, FullName: file_name, FileName: name, FileExt: ext}, duration: duration, current_file_name: file_name}
+	return &SplittedFileAppender{FileAppender: *(NewFileAppender(layout, file_name, 0)), duration: duration, current_file_name: file_name}
 }

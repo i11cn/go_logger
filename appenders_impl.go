@@ -12,39 +12,31 @@ import (
 )
 
 type ConsoleAppender struct {
-	layout Layout
+	BaseAppender
 }
 
 var console_appender_mutex sync.Mutex
 
-func (ca *ConsoleAppender) GetLayout() Layout {
-	return ca.layout
-}
-
-func (*ConsoleAppender) Write(msg string) {
+func (*ConsoleAppender) Write(msg []byte) {
 	console_appender_mutex.Lock()
 	defer console_appender_mutex.Unlock()
-	fmt.Println(msg)
+	fmt.Println(string(msg))
 }
 
 type StderrAppender struct {
-	layout Layout
+	BaseAppender
 }
 
 var stderr_appender_mutex sync.Mutex
 
-func (ea *StderrAppender) GetLayout() Layout {
-	return ea.layout
-}
-
-func (*StderrAppender) Write(msg string) {
+func (*StderrAppender) Write(msg []byte) {
 	stderr_appender_mutex.Lock()
 	defer stderr_appender_mutex.Unlock()
-	fmt.Fprintln(os.Stderr, msg)
+	fmt.Fprintln(os.Stderr, string(msg))
 }
 
 type FileAppender struct {
-	layout       Layout
+	BaseAppender
 	FullName     string
 	FileName     string
 	FileExt      string
@@ -68,10 +60,6 @@ func (l *FileAppender) CloseFile() {
 		l.file = nil
 	}
 	l.current_size = 0
-}
-
-func (l *FileAppender) GetLayout() Layout {
-	return l.layout
 }
 
 func (f *FileAppender) get_current_size(file_name string) int64 {
@@ -115,15 +103,15 @@ func (f *FileAppender) open_and_write(file_name, msg string) {
 	}
 }
 
-func (f *FileAppender) Write(msg string) {
-	f.open_and_write(f.FullName, msg)
+func (f *FileAppender) Write(msg []byte) {
+	f.open_and_write(f.FullName, string(msg))
 }
 
 type TruncatedFileAppender struct {
 	FileAppender
 }
 
-func (f *TruncatedFileAppender) Write(msg string) {
+func (f *TruncatedFileAppender) Write(msg []byte) {
 	// 检查是否需要关闭文件
 	if f.MaxSize > 0 && (int64(len(msg))+f.get_current_size(f.FullName) > f.MaxSize) {
 		if f.file != nil {
@@ -132,7 +120,7 @@ func (f *TruncatedFileAppender) Write(msg string) {
 			os.Remove(f.FullName)
 		}
 	}
-	f.open_and_write(f.FullName, msg)
+	f.open_and_write(f.FullName, string(msg))
 }
 
 type FixSizeFileAppender struct {
@@ -180,7 +168,7 @@ func (f *FixSizeFileAppender) get_current_size(file_name string) int64 {
 	}
 }
 
-func (f *FixSizeFileAppender) Write(msg string) {
+func (f *FixSizeFileAppender) Write(msg []byte) {
 	// 检查是否需要关闭文件
 	if f.MaxSize > 0 && (int64(len(msg))+f.get_current_size(f.FullName) > f.MaxSize) {
 		if f.file != nil {
@@ -191,7 +179,7 @@ func (f *FixSizeFileAppender) Write(msg string) {
 		os.Truncate(f.current_file_name, 0)
 		f.current_size = 0
 	}
-	f.open_and_write(f.current_file_name, msg)
+	f.open_and_write(f.current_file_name, string(msg))
 }
 
 type SplittedFileAppender struct {
@@ -201,13 +189,13 @@ type SplittedFileAppender struct {
 	next_split_time   time.Time
 }
 
-func (s *SplittedFileAppender) Write(msg string) {
+func (s *SplittedFileAppender) Write(msg []byte) {
 	if new_name, check_time, split := s.should_split(); split {
 		s.CloseFile()
 		s.current_file_name = new_name
 		s.next_split_time = check_time
 	}
-	s.open_and_write(s.current_file_name, msg)
+	s.open_and_write(s.current_file_name, string(msg))
 }
 
 func (s *SplittedFileAppender) should_split_per_day() (new_name string, check_time time.Time, split bool) {

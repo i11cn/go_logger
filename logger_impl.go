@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"bytes"
 	"os"
 	"runtime"
 	"sync"
@@ -31,7 +30,7 @@ func (l *Logger) write(level string, args ...interface{}) {
 	l.appender_mutex.RLock()
 	defer l.appender_mutex.RUnlock()
 	for _, a := range l.appenders {
-		msg := parse_log_layout(a.GetLayout(), int_args, str_args, args...)
+		msg := a.Format(int_args, str_args, args...)
 		a.Write(msg)
 	}
 }
@@ -42,7 +41,7 @@ func (l *Logger) writef(level string, layout string, args ...interface{}) {
 	defer l.appender_mutex.RUnlock()
 	lo := Layout{ParseLayout(layout)}
 	for _, a := range l.appenders {
-		msg := parse_log_layout(lo, int_args, str_args, args...)
+		msg := a.FormatBy(lo, int_args, str_args, args...)
 		a.Write(msg)
 	}
 }
@@ -73,15 +72,7 @@ func get_time_string(layout string) string {
 func get_private_logger() (l *Logger) {
 	l = GetLogger("go_logger")
 	if len(l.appenders) == 0 {
-		l.AddAppender(&StderrAppender{Layout{ParseLayout("[%T] %N-%L: %M")}})
+		l.AddAppender(&StderrAppender{NewBaseAppender("[%T] %N-%L: %M")})
 	}
 	return
-}
-
-func parse_log_layout(layout Layout, int_args [2]int, str_args [5]string, args ...interface{}) string {
-	var buf bytes.Buffer
-	for _, l := range layout.Parts {
-		buf.Write(l(int_args, str_args, args...))
-	}
-	return buf.String()
 }

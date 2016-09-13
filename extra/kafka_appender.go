@@ -8,7 +8,7 @@ import (
 
 type (
 	KafkaAppender struct {
-		layout   logger.Layout
+		logger.BaseAppender
 		producer sarama.AsyncProducer
 		topic    string
 		buf      chan *sarama.ProducerMessage
@@ -16,26 +16,21 @@ type (
 	}
 )
 
-func (k *KafkaAppender) GetLayout() logger.Layout {
-	return k.layout
-}
-
-func (k *KafkaAppender) Write(msg string) {
-	s := &sarama.ProducerMessage{Topic: k.topic, Value: sarama.StringEncoder(msg)}
+func (k *KafkaAppender) Write(msg []byte) {
+	s := &sarama.ProducerMessage{Topic: k.topic, Value: sarama.ByteEncoder(msg)}
 	if k.sync {
 		k.producer.Input() <- s
 	} else {
 		select {
 		case k.buf <- s:
 		default:
-			fmt.Println("Kafka系统忙，发送失败: ", msg)
+			fmt.Println("Kafka系统忙，发送失败: ", string(msg))
 		}
 	}
 }
 
 func NewKafkaAppender(prod sarama.AsyncProducer, topic, layout string) *KafkaAppender {
-	lo := logger.Layout{logger.ParseLayout(layout)}
-	ret := &KafkaAppender{lo, prod, topic, make(chan *sarama.ProducerMessage, 100), true}
+	ret := &KafkaAppender{logger.NewBaseAppender(layout), prod, topic, make(chan *sarama.ProducerMessage, 100), true}
 	if ret.sync {
 		go func() {
 			select {
