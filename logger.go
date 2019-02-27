@@ -39,12 +39,8 @@ func CallStack() string {
 	pc = pc[:n]
 	frames := runtime.CallersFrames(pc)
 	buf := bytes.NewBufferString("")
-	for {
-		frame, more := frames.Next()
+	for frame, more := frames.Next(); more; frame, more = frames.Next() {
 		buf.WriteString(fmt.Sprintf("%s:%d - %s\n", frame.File, frame.Line, frame.Function))
-		if !more {
-			break
-		}
 	}
 	return buf.String()
 }
