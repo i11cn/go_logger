@@ -1,6 +1,9 @@
 package logger
 
 import (
+	"bytes"
+	"fmt"
+	"runtime"
 	"sync"
 )
 
@@ -26,6 +29,25 @@ type (
 		appender_mutex sync.RWMutex
 	}
 )
+
+func CallStack() string {
+	pc := make([]uintptr, 100)
+	n := runtime.Callers(2, pc)
+	if n == 0 {
+		return ""
+	}
+	pc = pc[:n]
+	frames := runtime.CallersFrames(pc)
+	buf := bytes.NewBufferString("")
+	for {
+		frame, more := frames.Next()
+		buf.WriteString(fmt.Sprintf("%s:%d - %s\n", frame.File, frame.Line, frame.Function))
+		if !more {
+			break
+		}
+	}
+	return buf.String()
+}
 
 func (l *Logger) SetLevel(level int) *Logger {
 	l.level = level
