@@ -13,14 +13,12 @@ var (
 )
 
 func (l *Logger) get_src_info(level string) (int_args [2]int, str_args [5]string) {
-	if pc, _, _, ok := runtime.Caller(3); ok {
+	int_args = [2]int{0, os.Getpid()}
+	str_args = [5]string{"", "", l.name, level, get_time_string(l.time_layout)}
+	if pc, file, line, ok := runtime.Caller(3); ok {
 		f := runtime.FuncForPC(pc)
-		file, line := f.FileLine(pc)
-		int_args = [2]int{line, os.Getpid()}
-		str_args = [5]string{file, f.Name(), l.name, level, get_time_string(l.time_layout)}
-	} else {
-		int_args = [2]int{0, os.Getpid()}
-		str_args = [5]string{"", "", l.name, level, get_time_string(l.time_layout)}
+		int_args[0] = line
+		str_args[0], str_args[1] = file, f.Name()
 	}
 	return
 }

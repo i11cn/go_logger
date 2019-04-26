@@ -1,3 +1,25 @@
+// Package logger 中的Appender，可以定制Layout，具体定制的参数如下：
+//
+// %F - 日志产生位置的源文件名
+//
+// %f - 日志产生位置的方法名
+//
+// %N - 日志的名称
+//
+// %L - 输出本条日志的级别
+//
+// %p - 当前运行的进行号
+//
+// %T - 输出当前的时间戳
+//
+// %% - 输出字符 %
+//
+// %m - 作为单一变量的占位符，依次输出日志layout之后的参数
+//
+// %M - 作为一群变量的占位符，输出所有没有匹配的参数，因此%M需要放在最后，将所有 %m 没有匹配的参数都集中起来输出完成
+//
+// %l - 日志产生位置，在源文件中的行号
+//
 package logger
 
 import (
@@ -147,6 +169,10 @@ func ParseLayout(l string) []func([2]int, [5]string, ...interface{}) []byte {
 
 func NewConsoleAppender(layout string) *ConsoleAppender {
 	return &ConsoleAppender{NewBaseAppender(layout)}
+}
+
+func NewStderrAppender(layout string) *StderrAppender {
+	return &StderrAppender{NewBaseAppender(layout)}
 }
 
 func NewFileAppender(layout, file_name string, max_size int64) *FileAppender {
