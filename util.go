@@ -77,6 +77,10 @@ func NewLoggerFromConfig(cfg config.Config) (*Logger, error) {
 	if err := set_logger_level(ret, cfg); err != nil {
 		return nil, err
 	}
+	time_layout := ""
+	if err := cfg.GetAs(&time_layout, "time"); err != nil {
+		ret.SetTimeLayout(time_layout)
+	}
 	if apds := cfg.SubArray("appenders"); apds != nil && len(apds) > 0 {
 		for _, apd := range apds {
 			if use, err := create_appender(apd); err != nil {

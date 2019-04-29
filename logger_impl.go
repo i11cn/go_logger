@@ -57,7 +57,7 @@ func create_logger(name string) *Logger {
 	if ret, exist := global_logger_map[name]; exist {
 		return ret
 	} else {
-		ret = &Logger{name: name, time_layout: "2006-01-02 15:04:05.999999", appenders: make([]Appender, 0, 10), level: ALL, enabled: true}
+		ret = &Logger{name: name, time_layout: "2006-01-02 15:04:05.000000", appenders: make([]Appender, 0, 10), level: ALL, enabled: true}
 		global_logger_map[name] = ret
 		return ret
 	}
