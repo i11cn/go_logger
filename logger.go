@@ -30,9 +30,13 @@ type (
 	}
 )
 
-func CallStack() string {
+func CallStack(skip ...int) string {
+	s := 2
+	if len(skip) > 0 {
+		s = skip[0]
+	}
 	pc := make([]uintptr, 100)
-	n := runtime.Callers(2, pc)
+	n := runtime.Callers(s, pc)
 	if n == 0 {
 		return ""
 	}
