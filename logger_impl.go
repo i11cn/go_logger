@@ -15,7 +15,7 @@ var (
 func (l *Logger) get_src_info(level string) (int_args [2]int, str_args [5]string) {
 	int_args = [2]int{0, os.Getpid()}
 	str_args = [5]string{"", "", l.name, level, get_time_string(l.time_layout)}
-	if pc, file, line, ok := runtime.Caller(3); ok {
+	if pc, file, line, ok := runtime.Caller(l.skip_pc); ok {
 		f := runtime.FuncForPC(pc)
 		int_args[0] = line
 		str_args[0], str_args[1] = file, f.Name()
@@ -57,7 +57,15 @@ func create_logger(name string) *Logger {
 	if ret, exist := global_logger_map[name]; exist {
 		return ret
 	} else {
-		ret = &Logger{ori_name: name, name: name, time_layout: "2006-01-02 15:04:05.000000", appenders: make([]Appender, 0, 10), level: ALL, enabled: true}
+		ret = &Logger{
+			ori_name:    name,
+			name:        name,
+			time_layout: "2006-01-02 15:04:05.000000",
+			appenders:   make([]Appender, 0, 10),
+			level:       ALL,
+			enabled:     true,
+			skip_pc:     3,
+		}
 		global_logger_map[name] = ret
 		return ret
 	}
