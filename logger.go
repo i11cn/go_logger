@@ -21,6 +21,7 @@ const (
 
 type (
 	Logger struct {
+		ori_name       string
 		name           string
 		level          int
 		enabled        bool
@@ -30,9 +31,13 @@ type (
 	}
 )
 
-func CallStack() string {
+func CallStack(skip ...int) string {
+	s := 2
+	if len(skip) > 0 {
+		s = skip[0]
+	}
 	pc := make([]uintptr, 100)
-	n := runtime.Callers(2, pc)
+	n := runtime.Callers(s, pc)
 	if n == 0 {
 		return ""
 	}
@@ -43,6 +48,11 @@ func CallStack() string {
 		buf.WriteString(fmt.Sprintf("%s:%d - %s\n", frame.File, frame.Line, frame.Function))
 	}
 	return buf.String()
+}
+
+func (l *Logger) SetName(name string) *Logger {
+	l.name = name
+	return l
 }
 
 func (l *Logger) SetLevel(level int) *Logger {
