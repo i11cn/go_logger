@@ -28,6 +28,7 @@ type (
 		time_layout    string
 		appenders      []Appender
 		appender_mutex sync.RWMutex
+		skip_pc        int
 	}
 )
 
@@ -96,6 +97,11 @@ func (l *Logger) ClearAppender() *Logger {
 
 func (l *Logger) AppenderCount() int {
 	return len(l.appenders)
+}
+
+func (l *Logger) SkipPC(v int) *Logger {
+	l.skip_pc = v
+	return l
 }
 
 func (l *Logger) Trace(args ...interface{}) *Logger {
