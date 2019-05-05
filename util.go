@@ -78,7 +78,7 @@ func NewLoggerFromConfig(cfg config.Config) (*Logger, error) {
 		return nil, err
 	}
 	time_layout := ""
-	if err := cfg.GetAs(&time_layout, "time"); err != nil {
+	if err := cfg.GetAs(&time_layout, "time"); err == nil {
 		ret.SetTimeLayout(time_layout)
 	}
 	if apds := cfg.SubArray("appenders"); apds != nil && len(apds) > 0 {
