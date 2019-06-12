@@ -2,8 +2,9 @@ package extra
 
 import (
 	"fmt"
+
 	"github.com/Shopify/sarama"
-	"go_logger"
+	logger "github.com/i11cn/go_logger"
 )
 
 type (

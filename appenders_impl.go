@@ -79,23 +79,23 @@ func (f *FileAppender) get_current_size(file_name string) int64 {
 }
 
 func (f *FileAppender) open_and_write(file_name, msg string) {
-	var err error
 	if f.file == nil {
 		var path string
+		var err error
 		clean := filepath.Clean(file_name)
 		if path, err = filepath.Abs(clean); err != nil {
 			path = clean
 		}
 		f.file, err = os.OpenFile(path, syscall.O_WRONLY|syscall.O_CREAT|syscall.O_APPEND, 0644)
-	}
-	if err != nil {
-		f.file = nil
-		l := get_private_logger()
-		l.Error("打开日志文件", f.FullName, "失败: ", err.Error())
-		return
-	} else {
-		if fi, err := f.file.Stat(); err == nil {
-			f.current_size = fi.Size()
+		if err != nil {
+			f.file = nil
+			l := get_private_logger()
+			l.Error("打开日志文件", f.FullName, "失败: ", err.Error())
+			return
+		} else {
+			if fi, err := f.file.Stat(); err == nil {
+				f.current_size = fi.Size()
+			}
 		}
 	}
 	if b, e := fmt.Fprintln(f.file, msg); e == nil {
