@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Shopify/sarama"
-	logger "github.com/i11cn/go_logger"
+	logger "github.com/i11cn/go_logger/v2"
 )
 
 type (
